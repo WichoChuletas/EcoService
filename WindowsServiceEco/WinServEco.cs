@@ -6,27 +6,30 @@ using System.Diagnostics;
 using System.Linq;
 using System.ServiceProcess;
 using System.Text;
-
+using System.Threading;
+using System.Windows.Forms;
 
 namespace WindowsServiceEco
 {
 	public partial class WinServEco : ServiceBase
 	{
 		zkemkeeperHandler zkh;
+        ActiveDirHandler AcDir;
 		public WinServEco()
 		{
 			InitializeComponent();
 
 			eventLog1 = new EventLog();
-            eventLog1.Source = "MySource";
-            eventLog1.Log = "MyNewLog";
-            if (!System.Diagnostics.EventLog.SourceExists("MySource"))
+			if (!System.Diagnostics.EventLog.SourceExists("MySource"))
 			{
 				System.Diagnostics.EventLog.CreateEventSource("MySource", "MyNewLog");
 			}
+			eventLog1.Source = "MySource";
+			eventLog1.Log = "MyNewLog";
+
 			eventLog1.WriteEntry("Initializing WinServEco!!");
 		
-			startZkemKeeperHandler();
+			
 		
 		}
 
@@ -34,10 +37,15 @@ namespace WindowsServiceEco
 		{
 			eventLog1.WriteEntry("Creating ZkemKeeper Handler Class");
 			zkh = new zkemkeeperHandler();
-			//zkh.OnFinger += OnFinger;
-			//zkh.OnVerify += OnVerify;
-			zkh.startService();
-		}
+            AcDir = new ActiveDirHandler();
+            //zkh.OnFinger += OnFinger;
+            //zkh.OnVerify += OnVerify;
+            zkh.startService();
+            AcDir.GetDirectoryEntry();
+            AcDir.Authenticate();
+            //AcDir.Disable();
+
+        }
 
 		private void stopZKHandler()
 		{
@@ -48,12 +56,27 @@ namespace WindowsServiceEco
 
 		protected override void OnStart(string[] args)
 		{
-			eventLog1.WriteEntry("WinServEco Starts!!");
+            Thread createComAndMessagePumpThread = new Thread(() =>
+            {
+                startZkemKeeperHandler();
+
+                Application.Run();
+
+            });
+            createComAndMessagePumpThread.SetApartmentState(ApartmentState.STA);
+
+            createComAndMessagePumpThread.Start();
+
+
+            eventLog1.WriteEntry("WinServEco Starts!!");
+			
 		}
 
 		protected override void OnStop()
 		{
 			eventLog1.WriteEntry("WinServEco Stops!!");
-		}
+            stopZKHandler();
+
+        }
 	}
 }
